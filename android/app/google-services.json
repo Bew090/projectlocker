@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "584785114430",
+    "firebase_url": "https://projectlocker001-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "projectlocker001",
+    "storage_bucket": "projectlocker001.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:584785114430:android:d1a95f980acec0a231e86f",
+        "android_client_info": {
+          "package_name": "com.example.project001"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMl8aFBEuzhfgfp6lcOq-_aRnerbdIlKQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:584785114430:android:0233160a64f061f931e86f",
+        "android_client_info": {
+          "package_name": "com.example.project002"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMl8aFBEuzhfgfp6lcOq-_aRnerbdIlKQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
