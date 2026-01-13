@@ -29,8 +29,53 @@ class _LockerSelectionPageState extends State<LockerSelectionPage> {
   @override
   void initState() {
     super.initState();
+    _initializeVacantLockers(); // เพิ่มการเริ่มต้นตู้ว่าง
     _loadLockerStatus();
     _checkUserCurrentLocker();
+  }
+
+  // ฟังก์ชันเริ่มต้นตู้ว่างให้ปลดล็อกทั้งหมด
+  Future<void> _initializeVacantLockers() async {
+    try {
+      for (String lockerCode in lockerCodes) {
+        final snapshot = await _database.child('lockers/$lockerCode').get();
+        
+        if (!snapshot.exists) {
+          // ถ้าไม่มีข้อมูล สร้างตู้ใหม่และปลดล็อกไว้
+          await _database.child('lockers/$lockerCode').set({
+            'isLocked': false, // ปลดล็อกตู้ว่าง
+            'currentUserId': null,
+            'bookingStartTime': null,
+            'bookingEndTime': null,
+            'bookingDuration': null,
+            'relay': {
+              'command': 'unlock_vacant',
+              'timestamp': DateTime.now().toIso8601String(),
+              'userId': null,
+              'status': 'completed',
+            },
+            'history': {},
+          });
+        } else {
+          // ถ้ามีข้อมูลแล้ว ตรวจสอบว่าตู้ว่างหรือไม่
+          final data = snapshot.value as Map<dynamic, dynamic>;
+          if (data['currentUserId'] == null) {
+            // ถ้าตู้ว่าง ให้ปลดล็อกไว้
+            await _database.child('lockers/$lockerCode').update({
+              'isLocked': false, // บังคับปลดล็อกตู้ว่าง
+              'relay': {
+                'command': 'unlock_vacant',
+                'timestamp': DateTime.now().toIso8601String(),
+                'userId': null,
+                'status': 'pending',
+              },
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error initializing vacant lockers: $e');
+    }
   }
 
   Future<void> _checkUserCurrentLocker() async {
@@ -53,10 +98,18 @@ class _LockerSelectionPageState extends State<LockerSelectionPage> {
           final data = event.snapshot.value;
           if (data is Map) {
             setState(() {
+              // ตู้ว่าง = ไม่มี currentUserId
               lockerStatus[lockerCode] = data['currentUserId'] == null;
               lockerUsers[lockerCode] = data['currentUserId'] as String?;
               isLoading = false;
             });
+            
+            // ถ้าตู้ว่าง (currentUserId == null) ให้บังคับปลดล็อก
+            if (data['currentUserId'] == null && data['isLocked'] != false) {
+              _database.child('lockers/$lockerCode').update({
+                'isLocked': false,
+              });
+            }
           }
         } else if (mounted) {
           setState(() {
@@ -358,7 +411,7 @@ class _LockerSelectionPageState extends State<LockerSelectionPage> {
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'คุณสามารถจองได้เพียง 1 ตู้เท่านั้น\nการจองตู้ใหม่จะยกเลิกตู้เก่าอัตโนมัติ',
+                            'คุณสามารถจองได้เพียง 1 ตู้เท่านั้น\nการจองตู้ใหม่จะยกเลิกตู้เก่าอัตโนมัติ\nตู้ว่างจะปลดล็อกไว้ตลอดเวลา',
                             style: TextStyle(
                               color: Color(0xFF4A5568),
                               fontSize: 14,

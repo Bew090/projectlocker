@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
- import 'locker_control_page.dart'; // import หน้าควบคุมตู้
+import 'locker_control_page.dart'; // import หน้าควบคุมตู้
 
 class LockerTimeSelectionPage extends StatefulWidget {
   final String userId;
@@ -80,23 +80,39 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
       if (widget.previousLocker != null && widget.previousLocker != widget.lockerCode) {
         await _database.child('lockers/${widget.previousLocker}').update({
           'currentUserId': null,
-          'isLocked': true,
+          'isLocked': false, // ปลดล็อกตู้เก่า
           'bookingStartTime': null,
           'bookingEndTime': null,
           'bookingDuration': null,
         });
+        
+        // ส่งคำสั่งรีเลย์ปลดล็อกตู้เก่า
+        await _database.child('lockers/${widget.previousLocker}/relay').update({
+          'command': 'unlock_vacant',
+          'timestamp': now.toIso8601String(),
+          'userId': null,
+          'status': 'pending',
+        });
       }
 
-      // จองตู้ใหม่
+      // จองตู้ใหม่ - ตั้งเป็นปลดล็อก (isLocked: false)
       await _database.child('lockers/${widget.lockerCode}').update({
         'currentUserId': widget.userId,
-        'isLocked': true,
+        'isLocked': false, // ⭐ สำคัญ: ปลดล็อกไว้ให้ user ล็อกเอง
         'bookingStartTime': now.toIso8601String(),
         'bookingEndTime': endTime.toIso8601String(),
         'bookingDuration': {
           'type': selectedType,
           'value': selectedValue,
         },
+      });
+
+      // ส่งคำสั่งรีเลย์ปลดล็อกตู้ (เปิดตู้ให้ user)
+      await _database.child('lockers/${widget.lockerCode}/relay').update({
+        'command': 'open', // ⭐ สำคัญ: เปิดตู้ไว้
+        'timestamp': now.toIso8601String(),
+        'userId': widget.userId,
+        'status': 'pending',
       });
 
       // บันทึกข้อมูลผู้ใช้
@@ -125,10 +141,11 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'จองตู้ ${widget.lockerCode} สำเร็จ\nระยะเวลา: $selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}',
+              'จองตู้ ${widget.lockerCode} สำเร็จ\nระยะเวลา: $selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}\nตู้เปิดไว้ให้แล้ว กรุณาเข้าไปล็อกเอง',
             ),
             backgroundColor: const Color(0xFF48BB78),
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
@@ -307,9 +324,9 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
 
                   // แสดงตัวเลือกตามประเภทที่เลือก
                   if (selectedType.isNotEmpty) ...[
-                    Text(
+                    const Text(
                       'เลือกระยะเวลา',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2D3748),
@@ -414,7 +431,7 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'คุณสามารถเลือกได้เพียงแบบเดียว\n- จองเป็นชั่วโมง: 1-24 ชั่วโมง\n- จองเป็นวัน: 1-3 วัน',
+                            'หลังจองตู้สำเร็จ:\n• ตู้จะเปิดไว้ให้อัตโนมัติ\n• กรุณาเข้าไปล็อกตู้เอง\n• จองได้เพียง 1 ตู้เท่านั้น',
                             style: TextStyle(
                               color: Color(0xFFE53E3E),
                               fontSize: 14,

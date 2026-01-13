@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
- import 'locker_selection_page.dart'; // import หน้าเลือกตู้
+import 'locker_selection_page.dart'; // import หน้าเลือกตู้
 
 class LockerControlPage extends StatefulWidget {
   final String userId; // รับ userId จากหน้าล็อกอิน
@@ -22,7 +22,7 @@ class LockerControlPage extends StatefulWidget {
 
 class _LockerControlPageState extends State<LockerControlPage> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  bool isLocked = true;
+  bool isLocked = false; // เริ่มต้นเป็น false (ปลดล็อก)
   DateTime? bookingStartTime; // เวลาที่จองตู้
   DateTime? bookingEndTime; // เวลาสิ้นสุดที่กำหนดจากหน้าเลือกเวลา
   Duration? remainingTime; // เวลาคงเหลือ (นับถอยหลัง)
@@ -62,12 +62,19 @@ class _LockerControlPageState extends State<LockerControlPage> {
 
       final lockerData = lockerSnapshot.value as Map<dynamic, dynamic>;
 
+      // อ่านค่า isLocked จาก Database และตั้งค่าให้ state
+      final currentIsLocked = lockerData['isLocked'] as bool? ?? false;
+      
+      setState(() {
+        isLocked = currentIsLocked;
+        isLoading = false;
+      });
+
       // ฟังการเปลี่ยนแปลงสถานะล็อก
       _database.child('lockers/${widget.lockerCode}/isLocked').onValue.listen((event) {
         if (mounted) {
           setState(() {
-            isLocked = event.snapshot.value as bool? ?? true;
-            isLoading = false;
+            isLocked = event.snapshot.value as bool? ?? false; // default เป็น false (ปลดล็อก)
           });
         }
       }, onError: (error) {
@@ -476,6 +483,31 @@ class _LockerControlPageState extends State<LockerControlPage> {
           totalDuration = now.difference(bookingStartTime!);
         }
 
+        // สั่งรีเลย์ปลดล็อกตู้ (ให้ user เข้าใช้งาน)
+        await _database.child('lockers/${widget.lockerCode}/relay').update({
+          'command': 'unlock_vacant',
+          'timestamp': now.toIso8601String(),
+          'userId': widget.userId,
+          'status': 'pending',
+        });
+
+        // รอการตอบกลับจากรีเลย์
+        bool relayExecuted = false;
+        int waitTime = 0;
+        
+        while (!relayExecuted && waitTime < 10) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          waitTime++;
+          
+          final relaySnapshot = await _database
+              .child('lockers/${widget.lockerCode}/relay/status')
+              .get();
+              
+          if (relaySnapshot.exists && relaySnapshot.value == 'completed') {
+            relayExecuted = true;
+          }
+        }
+
         // บันทึกประวัติการคืนตู้
         final historyRef = _database.child('lockers/${widget.lockerCode}/history').push();
         await historyRef.set({
@@ -483,17 +515,23 @@ class _LockerControlPageState extends State<LockerControlPage> {
           'timestamp': now.toIso8601String(),
           'duration': totalDuration?.inSeconds,
           'userId': widget.userId,
+          'relayStatus': relayExecuted ? 'success' : 'timeout',
         });
 
-        // ลบข้อมูลผู้ใช้ออกจากตู้
+        // ลบข้อมูลผู้ใช้ออกจากตู้และปลดล็อกตู้ (ตู้ว่าง)
         await _database.child('lockers/${widget.lockerCode}').update({
           'currentUserId': null,
-          'isLocked': true,
+          'isLocked': false, // บังคับปลดล็อกตู้ว่าง
           'bookingStartTime': null,
+          'bookingEndTime': null,
+          'bookingDuration': null,
         });
 
         // ลบรหัสตู้ออกจากผู้ใช้
         await _database.child('users/${widget.userId}/lockerCode').remove();
+        await _database.child('users/${widget.userId}/bookedAt').remove();
+        await _database.child('users/${widget.userId}/bookingEndTime').remove();
+        await _database.child('users/${widget.userId}/bookingDuration').remove();
 
         if (mounted) {
           Navigator.pop(context); // ปิด loading dialog
@@ -501,7 +539,13 @@ class _LockerControlPageState extends State<LockerControlPage> {
           // แสดงข้อความสำเร็จ
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('คืนตู้ ${widget.lockerCode} สำเร็จ'),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Text('คืนตู้ ${widget.lockerCode} สำเร็จ${relayExecuted ? "" : " (รีเลย์ไม่ตอบกลับ)"}'),
+                ],
+              ),
               backgroundColor: const Color(0xFF48BB78),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
