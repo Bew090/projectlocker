@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 class HistoryPage extends StatefulWidget {
   final String userId;
@@ -19,6 +20,7 @@ class _HistoryPageState extends State<HistoryPage> {
   DateTime selectedDate = DateTime.now();
   List<Map<String, dynamic>> historyList = [];
   bool isLoading = true;
+  bool isLocaleInitialized = false;
   Map<String, int> statsSummary = {
     'booked': 0,
     'unlock': 0,
@@ -29,7 +31,23 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
-    _loadHistory();
+    _initializeLocale();
+  }
+
+  Future<void> _initializeLocale() async {
+    try {
+      await initializeDateFormatting('th_TH', null);
+      setState(() {
+        isLocaleInitialized = true;
+      });
+      _loadHistory();
+    } catch (e) {
+      debugPrint('Error initializing locale: $e');
+      setState(() {
+        isLocaleInitialized = true; // ให้ทำงานต่อแม้ locale ไม่สำเร็จ
+      });
+      _loadHistory();
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -121,7 +139,6 @@ class _HistoryPageState extends State<HistoryPage> {
       initialDate: selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      locale: const Locale('th', 'TH'),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -160,6 +177,19 @@ class _HistoryPageState extends State<HistoryPage> {
       return formatter.format(dateTime);
     } catch (e) {
       return isoString;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    try {
+      // ลองใช้ locale ไทยก่อน ถ้าไม่ได้ใช้รูปแบบปกติ
+      final months = [
+        'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+      ];
+      return '${date.day} ${months[date.month - 1]} ${date.year + 543}';
+    } catch (e) {
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
 
@@ -218,7 +248,15 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormatter = DateFormat('d MMMM yyyy', 'th_TH');
+    if (!isLocaleInitialized) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF5F7FA),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final isToday = DateTime.now().day == selectedDate.day &&
         DateTime.now().month == selectedDate.month &&
         DateTime.now().year == selectedDate.year;
@@ -367,7 +405,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    dateFormatter.format(selectedDate),
+                    _formatDate(selectedDate),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
