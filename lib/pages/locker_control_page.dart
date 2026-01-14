@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
-// import 'locker_selection_page.dart'; // import หน้าเลือกตู้
+import 'locker_selection_page.dart'; // import หน้าเลือกตู้
 import 'main_navigation_page.dart'; // import หน้า Main Navigation
 
 class LockerControlPage extends StatefulWidget {
@@ -638,42 +638,48 @@ class _LockerControlPageState extends State<LockerControlPage> {
   Widget build(BuildContext context) {
     // แสดง Error ถ้ามี
     if (errorMessage != null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.red,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      errorMessage = null;
-                      isLoading = true;
-                    });
-                    _initializeFirebase();
-                  },
-                  child: const Text('ลองอีกครั้ง'),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: _backToSelection,
-                  child: const Text('กลับ'),
-                ),
-              ],
+      return WillPopScope(
+        onWillPop: () async {
+          _backToSelection();
+          return false;
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF5F7FA),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        errorMessage = null;
+                        isLoading = true;
+                      });
+                      _initializeFirebase();
+                    },
+                    child: const Text('ลองอีกครั้ง'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: _backToSelection,
+                    child: const Text('กลับ'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -682,498 +688,510 @@ class _LockerControlPageState extends State<LockerControlPage> {
 
     // แสดง Loading
     if (isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                'กำลังโหลดข้อมูล...',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF718096),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3748)),
-          onPressed: _backToSelection, // กลับไปหน้าเลือกตู้
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF2D3748)),
-            onPressed: _loadBookingHistory,
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+      return WillPopScope(
+        onWillPop: () async {
+          _backToSelection();
+          return false;
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF5F7FA),
+          body: Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ตู้ล็อกเกอร์ของฉัน',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'จัดการและควบคุมตู้ของคุณ',
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(
+                  'กำลังโหลดข้อมูล...',
                   style: TextStyle(
                     fontSize: 16,
                     color: Color(0xFF718096),
                   ),
                 ),
-                const SizedBox(height: 40),
-                
-                // Locker Info Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return WillPopScope(
+      onWillPop: () async {
+        _backToSelection();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3748)),
+            onPressed: _backToSelection, // กลับไปหน้าเลือกตู้
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Color(0xFF2D3748)),
+              onPressed: _loadBookingHistory,
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ตู้ล็อกเกอร์ของฉัน',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3748),
                     ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF667EEA).withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
                   ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'รหัสตู้',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'จัดการและควบคุมตู้ของคุณ',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF718096),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  // Locker Info Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.lockerCode,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 4,
-                        ),
-                      ),
-                      if (bookingDurationText.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.schedule_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'จอง $bookingDurationText',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF667EEA).withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // Status Card with Timer
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isLocked
-                                  ? const Color(0xFFEDF2F7)
-                                  : const Color(0xFFFED7D7),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
-                              color: isLocked
-                                  ? const Color(0xFF4A5568)
-                                  : const Color(0xFFE53E3E),
-                              size: 28,
-                            ),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'รหัสตู้',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.lockerCode,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        if (bookingDurationText.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
-                                  'สถานะตู้',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF718096),
-                                  ),
+                                const Icon(
+                                  Icons.schedule_rounded,
+                                  color: Colors.white,
+                                  size: 18,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(width: 8),
                                 Text(
-                                  isLocked ? 'ล็อก' : 'ปลดล็อก',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: isLocked
-                                        ? const Color(0xFF2D3748)
-                                        : const Color(0xFFE53E3E),
+                                  'จอง $bookingDurationText',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: isLocked
-                                  ? const Color(0xFF48BB78)
-                                  : const Color(0xFFED8936),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isLocked
-                                          ? const Color(0xFF48BB78)
-                                          : const Color(0xFFED8936))
-                                      .withOpacity(0.4),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
                                 ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                      // แสดงเวลาถอยหลังตลอดเวลา
-                      if (remainingTime != null) ...[
-                        const SizedBox(height: 20),
-                        const Divider(),
-                        const SizedBox(height: 20),
-                        Column(
-                          children: [
-                            const Text(
-                              'เวลาคงเหลือ',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF718096),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _formatDuration(remainingTime!),
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: remainingTime!.inMinutes < 5
-                                    ? const Color(0xFFE53E3E) // สีแดงเมื่อเหลือน้อย
-                                    : const Color(0xFF2D3748),
-                                letterSpacing: 2,
-                              ),
-                            ),
-                            if (remainingTime!.inMinutes < 5) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFED7D7),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 16,
-                                      color: Color(0xFFE53E3E),
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'เวลาใกล้หมด!',
-                                      style: TextStyle(
-                                        color: Color(0xFFE53E3E),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 30),
-                
-                // Control Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton(
-                    onPressed: _toggleLock,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isLocked
-                          ? const Color(0xFFED8936)
-                          : const Color(0xFF48BB78),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          isLocked ? Icons.lock_open_rounded : Icons.lock_rounded,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          isLocked ? 'ปลดล็อกตู้' : 'ล็อกตู้',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ],
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Return Locker Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: OutlinedButton(
-                    onPressed: _returnLocker,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFE53E3E),
-                      side: const BorderSide(color: Color(0xFFE53E3E), width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.logout_rounded, size: 24),
-                        SizedBox(width: 12),
-                        Text(
-                          'คืนตู้ล็อกเกอร์',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // Booking History
-                const Text(
-                  'ประวัติการใช้งาน',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                
-                if (bookingHistory.isEmpty)
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Status Card with Timer
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'ยังไม่มีประวัติการใช้งาน',
-                        style: TextStyle(
-                          color: Color(0xFF718096),
-                          fontSize: 16,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
+                      ],
                     ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: bookingHistory.length,
-                    itemBuilder: (context, index) {
-                      final history = bookingHistory[index];
-                      final action = history['action'] as String;
-                      
-                      IconData icon;
-                      Color iconColor;
-                      Color bgColor;
-                      
-                      switch (action) {
-                        case 'unlock':
-                          icon = Icons.lock_open_rounded;
-                          iconColor = const Color(0xFFE53E3E);
-                          bgColor = const Color(0xFFFED7D7);
-                          break;
-                        case 'lock':
-                          icon = Icons.lock_rounded;
-                          iconColor = const Color(0xFF4A5568);
-                          bgColor = const Color(0xFFEDF2F7);
-                          break;
-                        case 'booked':
-                          icon = Icons.check_circle;
-                          iconColor = const Color(0xFF48BB78);
-                          bgColor = const Color(0xFFD4EDDA);
-                          break;
-                        case 'returned':
-                          icon = Icons.logout_rounded;
-                          iconColor = const Color(0xFFED8936);
-                          bgColor = const Color(0xFFFFE5D0);
-                          break;
-                        default:
-                          icon = Icons.info;
-                          iconColor = const Color(0xFF4A5568);
-                          bgColor = const Color(0xFFEDF2F7);
-                      }
-                      
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(10),
+                                color: isLocked
+                                    ? const Color(0xFFEDF2F7)
+                                    : const Color(0xFFFED7D7),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(icon, color: iconColor, size: 24),
+                              child: Icon(
+                                isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                                color: isLocked
+                                    ? const Color(0xFF4A5568)
+                                    : const Color(0xFFE53E3E),
+                                size: 28,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _getActionText(action),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2D3748),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _formatDateTime(history['timestamp']),
-                                    style: const TextStyle(
+                                  const Text(
+                                    'สถานะตู้',
+                                    style: TextStyle(
                                       fontSize: 14,
                                       color: Color(0xFF718096),
                                     ),
                                   ),
-                                  if (action == 'returned' && history['duration'] != null) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'ระยะเวลาที่ใช้: ${_formatDuration(Duration(seconds: history['duration']))}',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF4A5568),
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isLocked ? 'ล็อก' : 'ปลดล็อก',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: isLocked
+                                          ? const Color(0xFF2D3748)
+                                          : const Color(0xFFE53E3E),
                                     ),
-                                  ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: isLocked
+                                    ? const Color(0xFF48BB78)
+                                    : const Color(0xFFED8936),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (isLocked
+                                            ? const Color(0xFF48BB78)
+                                            : const Color(0xFFED8936))
+                                        .withOpacity(0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
                                 ],
                               ),
                             ),
                           ],
                         ),
-                      );
-                    },
+                        // แสดงเวลาถอยหลังตลอดเวลา
+                        if (remainingTime != null) ...[
+                          const SizedBox(height: 20),
+                          const Divider(),
+                          const SizedBox(height: 20),
+                          Column(
+                            children: [
+                              const Text(
+                                'เวลาคงเหลือ',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF718096),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _formatDuration(remainingTime!),
+                                style: TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  color: remainingTime!.inMinutes < 5
+                                      ? const Color(0xFFE53E3E) // สีแดงเมื่อเหลือน้อย
+                                      : const Color(0xFF2D3748),
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              if (remainingTime!.inMinutes < 5) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFED7D7),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(
+                                        Icons.warning_amber_rounded,
+                                        size: 16,
+                                        color: Color(0xFFE53E3E),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'เวลาใกล้หมด!',
+                                        style: TextStyle(
+                                          color: Color(0xFFE53E3E),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-              ],
+                  
+                  const SizedBox(height: 30),
+                  
+                  // Control Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: ElevatedButton(
+                      onPressed: _toggleLock,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isLocked
+                            ? const Color(0xFFED8936)
+                            : const Color(0xFF48BB78),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isLocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            isLocked ? 'ปลดล็อกตู้' : 'ล็อกตู้',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Return Locker Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: OutlinedButton(
+                      onPressed: _returnLocker,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE53E3E),
+                        side: const BorderSide(color: Color(0xFFE53E3E), width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.logout_rounded, size: 24),
+                          SizedBox(width: 12),
+                          Text(
+                            'คืนตู้ล็อกเกอร์',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Booking History
+                  const Text(
+                    'ประวัติการใช้งาน',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3748),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  if (bookingHistory.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'ยังไม่มีประวัติการใช้งาน',
+                          style: TextStyle(
+                            color: Color(0xFF718096),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: bookingHistory.length,
+                      itemBuilder: (context, index) {
+                        final history = bookingHistory[index];
+                        final action = history['action'] as String;
+                        
+                        IconData icon;
+                        Color iconColor;
+                        Color bgColor;
+                        
+                        switch (action) {
+                          case 'unlock':
+                            icon = Icons.lock_open_rounded;
+                            iconColor = const Color(0xFFE53E3E);
+                            bgColor = const Color(0xFFFED7D7);
+                            break;
+                          case 'lock':
+                            icon = Icons.lock_rounded;
+                            iconColor = const Color(0xFF4A5568);
+                            bgColor = const Color(0xFFEDF2F7);
+                            break;
+                          case 'booked':
+                            icon = Icons.check_circle;
+                            iconColor = const Color(0xFF48BB78);
+                            bgColor = const Color(0xFFD4EDDA);
+                            break;
+                          case 'returned':
+                            icon = Icons.logout_rounded;
+                            iconColor = const Color(0xFFED8936);
+                            bgColor = const Color(0xFFFFE5D0);
+                            break;
+                          default:
+                            icon = Icons.info;
+                            iconColor = const Color(0xFF4A5568);
+                            bgColor = const Color(0xFFEDF2F7);
+                        }
+                        
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(icon, color: iconColor, size: 24),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _getActionText(action),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2D3748),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatDateTime(history['timestamp']),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF718096),
+                                      ),
+                                    ),
+                                    if (action == 'returned' && history['duration'] != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'ระยะเวลาที่ใช้: ${_formatDuration(Duration(seconds: history['duration']))}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Color(0xFF4A5568),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         ),

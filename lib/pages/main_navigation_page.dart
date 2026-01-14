@@ -34,53 +34,67 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
+    return WillPopScope(
+      onWillPop: () async {
+        // ถ้าอยู่หน้าตู้ล็อกเกอร์ (index 0) ให้ออกจากแอป
+        if (_currentIndex == 0) {
+          return true;
+        }
+        
+        // ถ้าอยู่หน้าอื่น ให้กลับไปหน้าตู้ล็อกเกอร์
+        setState(() {
+          _currentIndex = 0;
+        });
+        return false;
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _pages,
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFF667EEA),
-          unselectedItemColor: const Color(0xFF718096),
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2_rounded, size: 26),
-              activeIcon: Icon(Icons.inventory_2_rounded, size: 28),
-              label: 'ตู้ล็อกเกอร์',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_rounded, size: 26),
-              activeIcon: Icon(Icons.history_rounded, size: 28),
-              label: 'ประวัติ',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded, size: 26),
-              activeIcon: Icon(Icons.person_rounded, size: 28),
-              label: 'โปรไฟล์',
-            ),
-          ],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            selectedItemColor: const Color(0xFF667EEA),
+            unselectedItemColor: const Color(0xFF718096),
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            elevation: 0,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.inventory_2_rounded, size: 26),
+                activeIcon: Icon(Icons.inventory_2_rounded, size: 28),
+                label: 'ตู้ล็อกเกอร์',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.history_rounded, size: 26),
+                activeIcon: Icon(Icons.history_rounded, size: 28),
+                label: 'ประวัติ',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded, size: 26),
+                activeIcon: Icon(Icons.person_rounded, size: 28),
+                label: 'โปรไฟล์',
+              ),
+            ],
+          ),
         ),
       ),
     );
