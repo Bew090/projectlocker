@@ -1,5 +1,5 @@
 // locker_time_selection_page.dart
-// หน้าเลือกระยะเวลาการใช้งานตู้ล็อกเกอร์
+// หน้าเลือกระยะเวลาการใช้งานตู้ล็อกเกอร์ (รองรับโหมดทดสอบ)
 
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -9,12 +9,14 @@ class LockerTimeSelectionPage extends StatefulWidget {
   final String userId;
   final String lockerCode;
   final String? previousLocker;
+  final bool testMode; // ⭐ เพิ่มโหมดทดสอบ
 
   const LockerTimeSelectionPage({
     Key? key,
     required this.userId,
     required this.lockerCode,
     this.previousLocker,
+    this.testMode = true, // ค่าเริ่มต้นปิดโหมดทดสอบ
   }) : super(key: key);
 
   @override
@@ -24,10 +26,14 @@ class LockerTimeSelectionPage extends StatefulWidget {
 class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   
-  String selectedType = ''; // 'hours' หรือ 'days'
+  String selectedType = ''; // 'seconds', 'minutes', 'hours', 'days'
   int selectedValue = 0;
   bool isProcessing = false;
 
+  // ⭐ ตัวเลือกสำหรับโหมดทดสอบ
+  final List<int> secondOptions = [10, 20, 30, 45, 60, 90, 120, 180]; // วินาที
+  final List<int> minuteOptions = [1, 2, 3, 5, 10, 15, 20, 30]; // นาที
+  
   // ตัวเลือกสำหรับจองเป็นชั่วโมง (1-24)
   final List<int> hourOptions = List.generate(24, (index) => index + 1);
   
@@ -66,27 +72,37 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         }
       }
 
-      // คำนวณเวลาสิ้นสุด
+      // ⭐ คำนวณเวลาสิ้นสุดตามประเภท
       final now = DateTime.now();
       DateTime endTime;
       
-      if (selectedType == 'hours') {
-        endTime = now.add(Duration(hours: selectedValue));
-      } else {
-        endTime = now.add(Duration(days: selectedValue));
+      switch (selectedType) {
+        case 'seconds':
+          endTime = now.add(Duration(seconds: selectedValue));
+          break;
+        case 'minutes':
+          endTime = now.add(Duration(minutes: selectedValue));
+          break;
+        case 'hours':
+          endTime = now.add(Duration(hours: selectedValue));
+          break;
+        case 'days':
+          endTime = now.add(Duration(days: selectedValue));
+          break;
+        default:
+          endTime = now.add(Duration(hours: selectedValue));
       }
 
       // ถ้าผู้ใช้จองตู้อื่นอยู่แล้ว ให้ยกเลิกตู้เก่า
       if (widget.previousLocker != null && widget.previousLocker != widget.lockerCode) {
         await _database.child('lockers/${widget.previousLocker}').update({
           'currentUserId': null,
-          'isLocked': false, // ปลดล็อกตู้เก่า
+          'isLocked': false,
           'bookingStartTime': null,
           'bookingEndTime': null,
           'bookingDuration': null,
         });
         
-        // ส่งคำสั่งรีเลย์ปลดล็อกตู้เก่า
         await _database.child('lockers/${widget.previousLocker}/relay').update({
           'command': 'unlock_vacant',
           'timestamp': now.toIso8601String(),
@@ -95,10 +111,10 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         });
       }
 
-      // จองตู้ใหม่ - ตั้งเป็นปลดล็อก (isLocked: false)
+      // จองตู้ใหม่
       await _database.child('lockers/${widget.lockerCode}').update({
         'currentUserId': widget.userId,
-        'isLocked': false, // ⭐ สำคัญ: ปลดล็อกไว้ให้ user ล็อกเอง
+        'isLocked': false,
         'bookingStartTime': now.toIso8601String(),
         'bookingEndTime': endTime.toIso8601String(),
         'bookingDuration': {
@@ -107,9 +123,9 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         },
       });
 
-      // ส่งคำสั่งรีเลย์ปลดล็อกตู้ (เปิดตู้ให้ user)
+      // ส่งคำสั่งรีเลย์ปลดล็อกตู้
       await _database.child('lockers/${widget.lockerCode}/relay').update({
-        'command': 'open', // ⭐ สำคัญ: เปิดตู้ไว้
+        'command': 'open',
         'timestamp': now.toIso8601String(),
         'userId': widget.userId,
         'status': 'pending',
@@ -120,7 +136,7 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         'lockerCode': widget.lockerCode,
         'bookedAt': now.toIso8601String(),
         'bookingEndTime': endTime.toIso8601String(),
-        'bookingDuration': '$selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}',
+        'bookingDuration': '$selectedValue ${_getUnitText()}',
       });
 
       // บันทึกประวัติการจอง
@@ -129,7 +145,7 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         'action': 'booked',
         'timestamp': DateTime.now().toUtc().add(const Duration(hours: 7)).toIso8601String(),
         'userId': widget.userId,
-        'duration': '$selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}',
+        'duration': '$selectedValue ${_getUnitText()}',
       });
 
       if (mounted) {
@@ -141,7 +157,7 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'จองตู้ ${widget.lockerCode} สำเร็จ\nระยะเวลา: $selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}\nตู้เปิดไว้ให้แล้ว กรุณาเข้าไปล็อกเอง',
+              'จองตู้ ${widget.lockerCode} สำเร็จ\nระยะเวลา: $selectedValue ${_getUnitText()}\nตู้เปิดไว้ให้แล้ว กรุณาเข้าไปล็อกเอง',
             ),
             backgroundColor: const Color(0xFF48BB78),
             behavior: SnackBarBehavior.floating,
@@ -150,7 +166,6 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
           ),
         );
 
-        // ไปหน้าควบคุมตู้
         await Future.delayed(const Duration(milliseconds: 500));
         Navigator.pushReplacement(
           context,
@@ -172,6 +187,22 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
     }
   }
 
+  // ⭐ ฟังก์ชันแปลงหน่วยเป็นภาษาไทย
+  String _getUnitText() {
+    switch (selectedType) {
+      case 'seconds':
+        return 'วินาที';
+      case 'minutes':
+        return 'นาที';
+      case 'hours':
+        return 'ชั่วโมง';
+      case 'days':
+        return 'วัน';
+      default:
+        return '';
+    }
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -182,8 +213,8 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // ปิด dialog
-              Navigator.pop(context); // กลับไปหน้าเลือกตู้
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text('ตกลง'),
           ),
@@ -199,9 +230,9 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'เลือกระยะเวลาการใช้งาน',
-          style: TextStyle(
+        title: Text(
+          widget.testMode ? 'เลือกระยะเวลา (โหมดทดสอบ)' : 'เลือกระยะเวลาการใช้งาน',
+          style: const TextStyle(
             color: Color(0xFF2D3748),
             fontWeight: FontWeight.bold,
           ),
@@ -234,20 +265,61 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ⭐ แสดง Badge โหมดทดสอบ
+                  if (widget.testMode) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5E6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFFFFB800),
+                          width: 2,
+                        ),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.science_rounded,
+                            color: Color(0xFFFFB800),
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'โหมดทดสอบ: ใช้สำหรับทดสอบระบบเท่านั้น',
+                              style: TextStyle(
+                                color: Color(0xFFFFB800),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Header Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                      gradient: LinearGradient(
+                        colors: widget.testMode
+                            ? [const Color(0xFFFFB800), const Color(0xFFFF8800)]
+                            : [const Color(0xFF667EEA), const Color(0xFF764BA2)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF667EEA).withOpacity(0.3),
+                          color: (widget.testMode 
+                              ? const Color(0xFFFFB800) 
+                              : const Color(0xFF667EEA)).withOpacity(0.3),
                           blurRadius: 15,
                           offset: const Offset(0, 8),
                         ),
@@ -255,8 +327,8 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
                     ),
                     child: Column(
                       children: [
-                        const Icon(
-                          Icons.schedule_rounded,
+                        Icon(
+                          widget.testMode ? Icons.science_rounded : Icons.schedule_rounded,
                           size: 48,
                           color: Colors.white,
                         ),
@@ -296,29 +368,86 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
 
                   const SizedBox(height: 16),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTypeCard(
-                          icon: Icons.access_time_rounded,
-                          title: 'จองเป็นชั่วโมง',
-                          subtitle: 'สูงสุด 24 ชั่วโมง',
-                          type: 'hours',
-                          color: const Color(0xFF48BB78),
+                  // ⭐ แสดงตัวเลือกตามโหมด
+                  if (widget.testMode) ...[
+                    // โหมดทดสอบ: แสดงวินาทีและนาที
+                    Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTypeCard(
+                                icon: Icons.timer_rounded,
+                                title: 'วินาที',
+                                subtitle: 'สำหรับทดสอบ',
+                                type: 'seconds',
+                                color: const Color(0xFFED8936),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTypeCard(
+                                icon: Icons.timer_10_rounded,
+                                title: 'นาที',
+                                subtitle: 'สำหรับทดสอบ',
+                                type: 'minutes',
+                                color: const Color(0xFFECC94B),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTypeCard(
-                          icon: Icons.calendar_today_rounded,
-                          title: 'จองเป็นวัน',
-                          subtitle: 'สูงสุด 3 วัน',
-                          type: 'days',
-                          color: const Color(0xFF4299E1),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTypeCard(
+                                icon: Icons.access_time_rounded,
+                                title: 'ชั่วโมง',
+                                subtitle: 'สูงสุด 24 ชั่วโมง',
+                                type: 'hours',
+                                color: const Color(0xFF48BB78),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTypeCard(
+                                icon: Icons.calendar_today_rounded,
+                                title: 'วัน',
+                                subtitle: 'สูงสุด 3 วัน',
+                                type: 'days',
+                                color: const Color(0xFF4299E1),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ] else ...[
+                    // โหมดปกติ: แสดงเฉพาะชั่วโมงและวัน
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTypeCard(
+                            icon: Icons.access_time_rounded,
+                            title: 'จองเป็นชั่วโมง',
+                            subtitle: 'สูงสุด 24 ชั่วโมง',
+                            type: 'hours',
+                            color: const Color(0xFF48BB78),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTypeCard(
+                            icon: Icons.calendar_today_rounded,
+                            title: 'จองเป็นวัน',
+                            subtitle: 'สูงสุด 3 วัน',
+                            type: 'days',
+                            color: const Color(0xFF4299E1),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
@@ -392,11 +521,9 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
                           ),
                           const Divider(height: 24),
                           _buildSummaryRow(
-                            icon: selectedType == 'hours'
-                                ? Icons.access_time_rounded
-                                : Icons.calendar_today_rounded,
+                            icon: _getIconForType(),
                             label: 'ระยะเวลา',
-                            value: '$selectedValue ${selectedType == "hours" ? "ชั่วโมง" : "วัน"}',
+                            value: '$selectedValue ${_getUnitText()}',
                           ),
                           const Divider(height: 24),
                           _buildSummaryRow(
@@ -482,6 +609,21 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
     );
   }
 
+  IconData _getIconForType() {
+    switch (selectedType) {
+      case 'seconds':
+        return Icons.timer_rounded;
+      case 'minutes':
+        return Icons.timer_10_rounded;
+      case 'hours':
+        return Icons.access_time_rounded;
+      case 'days':
+        return Icons.calendar_today_rounded;
+      default:
+        return Icons.schedule_rounded;
+    }
+  }
+
   Widget _buildTypeCard({
     required IconData icon,
     required String title,
@@ -495,11 +637,9 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
       onTap: () {
         setState(() {
           if (selectedType == type) {
-            // ถ้าคลิกที่ตัวเดิม ให้ยกเลิก
             selectedType = '';
             selectedValue = 0;
           } else {
-            // เลือกใหม่
             selectedType = type;
             selectedValue = 0;
           }
@@ -564,8 +704,25 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
   }
 
   Widget _buildDurationOptions() {
-    final options = selectedType == 'hours' ? hourOptions : dayOptions;
-    final unit = selectedType == 'hours' ? 'ชั่วโมง' : 'วัน';
+    List<int> options;
+    switch (selectedType) {
+      case 'seconds':
+        options = secondOptions;
+        break;
+      case 'minutes':
+        options = minuteOptions;
+        break;
+      case 'hours':
+        options = hourOptions;
+        break;
+      case 'days':
+        options = dayOptions;
+        break;
+      default:
+        options = [];
+    }
+
+    final unit = _getUnitText();
 
     return GridView.builder(
       shrinkWrap: true,
@@ -669,10 +826,26 @@ class _LockerTimeSelectionPageState extends State<LockerTimeSelectionPage> {
     final now = DateTime.now();
     DateTime endTime;
 
-    if (selectedType == 'hours') {
-      endTime = now.add(Duration(hours: selectedValue));
-    } else {
-      endTime = now.add(Duration(days: selectedValue));
+    switch (selectedType) {
+      case 'seconds':
+        endTime = now.add(Duration(seconds: selectedValue));
+        break;
+      case 'minutes':
+        endTime = now.add(Duration(minutes: selectedValue));
+        break;
+      case 'hours':
+        endTime = now.add(Duration(hours: selectedValue));
+        break;
+      case 'days':
+        endTime = now.add(Duration(days: selectedValue));
+        break;
+      default:
+        endTime = now;
+    }
+
+    // ⭐ แสดงวินาทีด้วยถ้าเป็นโหมดทดสอบ
+    if (selectedType == 'seconds' || selectedType == 'minutes') {
+      return '${endTime.day}/${endTime.month}/${endTime.year} ${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:${endTime.second.toString().padLeft(2, '0')} น.';
     }
 
     return '${endTime.day}/${endTime.month}/${endTime.year} ${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')} น.';
