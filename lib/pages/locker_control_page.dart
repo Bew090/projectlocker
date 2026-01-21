@@ -31,6 +31,9 @@ class _LockerControlPageState extends State<LockerControlPage> {
   bool isLoading = true;
   String? errorMessage;
   String bookingDurationText = ''; // ข้อความระยะเวลาที่จอง
+  bool isTimeExpired = false; // ตัวแปรเช็คว่าหมดเวลาหรือยัง
+  bool hasShownExpiredDialog = false; // ป้องกันแสดง dialog ซ้ำ
+  bool isShowingDialog = false; // ป้องกัน dialog ซ้อนกัน
   
   @override
   void initState() {
@@ -66,10 +69,39 @@ class _LockerControlPageState extends State<LockerControlPage> {
       // อ่านค่า isLocked จาก Database และตั้งค่าให้ state (ไม่แก้ไขค่าใน Database)
       final currentIsLocked = lockerData['isLocked'] as bool? ?? false;
       
+      // ตรวจสอบเวลาหมดอายุทันทีตอนโหลด
+      DateTime? endTime;
+      if (lockerData['bookingEndTime'] != null) {
+        try {
+          endTime = DateTime.parse(lockerData['bookingEndTime'] as String);
+        } catch (e) {
+          endTime = null;
+        }
+      }
+
+      // เช็คว่าหมดเวลาหรือยัง
+      bool expired = false;
+      if (endTime != null) {
+        final remaining = endTime.difference(DateTime.now());
+        if (remaining.isNegative) {
+          expired = true;
+        }
+      }
+      
       setState(() {
         isLocked = currentIsLocked;
+        bookingEndTime = endTime;
+        isTimeExpired = expired;
         isLoading = false;
       });
+
+      // ถ้าหมดเวลาแล้ว แสดง Dialog ทันที
+      if (expired && !hasShownExpiredDialog) {
+        hasShownExpiredDialog = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showTimeExpiredDialog();
+        });
+      }
 
       // ฟังการเปลี่ยนแปลงสถานะล็อก (เฉพาะอ่านค่า ไม่เขียนค่า)
       _database.child('lockers/${widget.lockerCode}/isLocked').onValue.listen((event) {
@@ -165,8 +197,10 @@ class _LockerControlPageState extends State<LockerControlPage> {
           if (remaining.isNegative) {
             // หมดเวลาแล้ว
             remainingTime = Duration.zero;
+            isTimeExpired = true;
           } else {
             remainingTime = remaining;
+            isTimeExpired = false;
           }
         });
         
@@ -180,13 +214,17 @@ class _LockerControlPageState extends State<LockerControlPage> {
           _showTimeWarning('เหลือเวลาอีก 1 นาที');
         }
         
-        // เตือนเมื่อหมดเวลา
-        if (remaining.isNegative && remaining.inSeconds > -2) {
-          _showTimeExpiredDialog();
+        // เตือนเมื่อหมดเวลา (แสดงแค่ครั้งเดียว)
+        if (remaining.isNegative && !hasShownExpiredDialog && !isShowingDialog) {
+          hasShownExpiredDialog = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showTimeExpiredDialog();
+          });
         }
       } else if (mounted) {
         setState(() {
           remainingTime = null;
+          isTimeExpired = false;
         });
       }
     });
@@ -213,49 +251,129 @@ class _LockerControlPageState extends State<LockerControlPage> {
   }
 
   void _showTimeExpiredDialog() {
+    // ป้องกันแสดง dialog ซ้อนกัน
+    if (isShowingDialog) return;
+    
+    setState(() {
+      isShowingDialog = true;
+    });
+
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFED7D7),
-                shape: BoxShape.circle,
+      barrierDismissible: false, // ห้ามปิด Dialog โดยการกดด้านนอก
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false, // ห้ามกดปุ่มย้อนกลับเพื่อปิด Dialog
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFED7D7),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.timer_off,
+                  color: Color(0xFFE53E3E),
+                  size: 28,
+                ),
               ),
-              child: const Icon(
-                Icons.timer_off,
-                color: Color(0xFFE53E3E),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'หมดเวลาการใช้งาน',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'เวลาการใช้ตู้หมดแล้ว กรุณาคืนตู้',
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF5E7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFED8936)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.info_outline, color: Color(0xFFED8936), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'คุณต้องคืนตู้เพื่อดำเนินการต่อ',
+                        style: TextStyle(
+                          color: Color(0xFFED8936),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    isShowingDialog = false;
+                  });
+                  _returnLocker();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE53E3E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.logout_rounded, size: 22, color: Colors.white),
+                    SizedBox(width: 10),
+                    Text(
+                      'คืนตู้ทันที',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            const Text('หมดเวลาการใช้งาน'),
           ],
         ),
-        content: const Text(
-          'เวลาการใช้ตู้หมดแล้ว กรุณาคืนตู้หรือต่ออายุการใช้งาน',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _returnLocker();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE53E3E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('คืนตู้'),
-          ),
-        ],
       ),
-    );
+    ).then((_) {
+      // เมื่อ dialog ปิด (ถ้าปิดได้) ให้รีเซ็ต flag
+      if (mounted) {
+        setState(() {
+          isShowingDialog = false;
+        });
+      }
+    });
   }
 
   Future<void> _loadBookingHistory() async {
@@ -447,17 +565,37 @@ class _LockerControlPageState extends State<LockerControlPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF4A5568),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              elevation: 2,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('ยืนยันคืนตู้'),
+            child: const Text(
+              'ยืนยันคืนตู้',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
         ],
       ),
@@ -581,6 +719,12 @@ class _LockerControlPageState extends State<LockerControlPage> {
   }
 
   void _backToSelection() {
+    // ถ้าหมดเวลาแล้ว ห้ามกลับ ต้องคืนตู้ก่อน
+    if (isTimeExpired) {
+      _showTimeExpiredDialog();
+      return;
+    }
+    
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -715,8 +859,23 @@ class _LockerControlPageState extends State<LockerControlPage> {
       );
     }
 
+    // ถ้าหมดเวลาแล้ว แสดง Dialog บังคับคืนตู้
+    if (isTimeExpired && !hasShownExpiredDialog && !isShowingDialog) {
+      hasShownExpiredDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showTimeExpiredDialog();
+      });
+    }
+
     return WillPopScope(
       onWillPop: () async {
+        // ถ้าหมดเวลา ห้ามย้อนกลับ
+        if (isTimeExpired) {
+          if (!isShowingDialog) {
+            _showTimeExpiredDialog();
+          }
+          return false; // ห้ามย้อนกลับ
+        }
         _backToSelection();
         return false;
       },
@@ -725,15 +884,18 @@ class _LockerControlPageState extends State<LockerControlPage> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3748)),
-            onPressed: _backToSelection, // กลับไปหน้าเลือกตู้
-          ),
+          leading: isTimeExpired 
+              ? null // ซ่อนปุ่มย้อนกลับถ้าหมดเวลา
+              : IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF2D3748)),
+                  onPressed: _backToSelection,
+                ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh, color: Color(0xFF2D3748)),
-              onPressed: _loadBookingHistory,
-            ),
+            if (!isTimeExpired) // แสดงปุ่ม refresh เฉพาะเมื่อยังไม่หมดเวลา
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xFF2D3748)),
+                onPressed: _loadBookingHistory,
+              ),
           ],
         ),
         body: SafeArea(
@@ -760,6 +922,47 @@ class _LockerControlPageState extends State<LockerControlPage> {
                     ),
                   ),
                   const SizedBox(height: 40),
+                  
+                  // แสดงแบนเนอร์เตือนเมื่อหมดเวลา
+                  if (isTimeExpired) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFED7D7),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE53E3E), width: 2),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.timer_off,
+                            color: Color(0xFFE53E3E),
+                            size: 48,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'หมดเวลาการใช้งาน',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE53E3E),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'กรุณาคืนตู้เพื่อดำเนินการต่อ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFFE53E3E),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                   
                   // Locker Info Card
                   Container(
@@ -993,7 +1196,7 @@ class _LockerControlPageState extends State<LockerControlPage> {
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: _toggleLock,
+                      onPressed: isTimeExpired ? null : _toggleLock, // ปิดปุ่มถ้าหมดเวลา
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isLocked
                             ? const Color(0xFFED8936)
@@ -1003,6 +1206,7 @@ class _LockerControlPageState extends State<LockerControlPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
+                        disabledBackgroundColor: const Color(0xFFCBD5E0), // สีเทาเมื่อปิดปุ่ม
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1013,7 +1217,7 @@ class _LockerControlPageState extends State<LockerControlPage> {
                           ),
                           const SizedBox(width: 12),
                           Text(
-                            isLocked ? 'ปลดล็อกตู้' : 'ล็อกตู้',
+                            isTimeExpired ? 'หมดเวลาใช้งาน' : (isLocked ? 'ปลดล็อกตู้' : 'ล็อกตู้'),
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -1030,11 +1234,12 @@ class _LockerControlPageState extends State<LockerControlPage> {
                   SizedBox(
                     width: double.infinity,
                     height: 60,
-                    child: OutlinedButton(
+                    child: ElevatedButton(
                       onPressed: _returnLocker,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFE53E3E),
-                        side: const BorderSide(color: Color(0xFFE53E3E), width: 2),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE53E3E),
+                        foregroundColor: Colors.white,
+                        elevation: 2,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -1042,13 +1247,14 @@ class _LockerControlPageState extends State<LockerControlPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(Icons.logout_rounded, size: 24),
+                          Icon(Icons.logout_rounded, size: 24, color: Colors.white),
                           SizedBox(width: 12),
                           Text(
                             'คืนตู้ล็อกเกอร์',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
