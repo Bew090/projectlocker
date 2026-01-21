@@ -34,6 +34,8 @@ class _LockerControlPageState extends State<LockerControlPage> {
   bool isTimeExpired = false; // ตัวแปรเช็คว่าหมดเวลาหรือยัง
   bool hasShownExpiredDialog = false; // ป้องกันแสดง dialog ซ้ำ
   bool isShowingDialog = false; // ป้องกัน dialog ซ้อนกัน
+  Duration? gracePeriodRemaining; // เวลาคงเหลือของช่วงผ่อนผัน 5 นาที
+  bool isInGracePeriod = false; // อยู่ในช่วง 5 นาทีหลังหมดเวลาหรือไม่
   
   @override
   void initState() {
@@ -195,12 +197,27 @@ class _LockerControlPageState extends State<LockerControlPage> {
         
         setState(() {
           if (remaining.isNegative) {
-            // หมดเวลาแล้ว
+            // หมดเวลาแล้ว - เริ่มนับช่วงผ่อนผัน 5 นาที
             remainingTime = Duration.zero;
             isTimeExpired = true;
+            isInGracePeriod = true;
+            
+            // คำนวณเวลาคงเหลือของช่วง 5 นาที
+            final gracePeriodEnd = bookingEndTime!.add(const Duration(minutes: 5));
+            final graceRemaining = gracePeriodEnd.difference(DateTime.now());
+            
+            if (graceRemaining.isNegative) {
+              // หมดช่วง 5 นาทีแล้ว - คืนตู้อัตโนมัติ
+              gracePeriodRemaining = Duration.zero;
+              _autoReturnLocker();
+            } else {
+              gracePeriodRemaining = graceRemaining;
+            }
           } else {
             remainingTime = remaining;
             isTimeExpired = false;
+            isInGracePeriod = false;
+            gracePeriodRemaining = null;
           }
         });
         
@@ -221,10 +238,22 @@ class _LockerControlPageState extends State<LockerControlPage> {
             _showTimeExpiredDialog();
           });
         }
+        
+        // เตือนเมื่อเหลือเวลาในช่วงผ่อนผัน 2 นาที
+        if (isInGracePeriod && gracePeriodRemaining != null) {
+          if (gracePeriodRemaining!.inMinutes == 2 && gracePeriodRemaining!.inSeconds % 60 == 0) {
+            _showTimeWarning('⚠️ ระบบจะคืนตู้อัตโนมัติในอีก 2 นาที!');
+          }
+          if (gracePeriodRemaining!.inMinutes == 1 && gracePeriodRemaining!.inSeconds % 60 == 0) {
+            _showTimeWarning('⚠️ ระบบจะคืนตู้อัตโนมัติในอีก 1 นาที!');
+          }
+        }
       } else if (mounted) {
         setState(() {
           remainingTime = null;
           isTimeExpired = false;
+          isInGracePeriod = false;
+          gracePeriodRemaining = null;
         });
       }
     });
@@ -307,19 +336,51 @@ class _LockerControlPageState extends State<LockerControlPage> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFED8936)),
                 ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.info_outline, color: Color(0xFFED8936), size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'คุณต้องคืนตู้เพื่อดำเนินการต่อ',
-                        style: TextStyle(
-                          color: Color(0xFFED8936),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                child: Column(
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.info_outline, color: Color(0xFFED8936), size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'ระบบจะคืนตู้อัตโนมัติใน',
+                            style: TextStyle(
+                              color: Color(0xFFED8936),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StreamBuilder<void>(
+                      stream: Stream.periodic(const Duration(seconds: 1)),
+                      builder: (context, snapshot) {
+                        if (gracePeriodRemaining != null && gracePeriodRemaining!.inSeconds > 0) {
+                          final minutes = gracePeriodRemaining!.inMinutes;
+                          final seconds = gracePeriodRemaining!.inSeconds % 60;
+                          return Text(
+                            '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFE53E3E),
+                              letterSpacing: 2,
+                            ),
+                          );
+                        }
+                        return const Text(
+                          '00:00',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFE53E3E),
+                            letterSpacing: 2,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -499,6 +560,104 @@ class _LockerControlPageState extends State<LockerControlPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('เกิดข้อผิดพลาด: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _autoReturnLocker() async {
+    // ป้องกันการเรียกซ้ำ
+    if (!mounted || !isInGracePeriod) return;
+    
+    try {
+      debugPrint('Auto returning locker: ${widget.lockerCode}');
+      
+      final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+
+      // คำนวณระยะเวลาที่ใช้ตู้
+      Duration? totalDuration;
+      if (bookingStartTime != null) {
+        totalDuration = now.difference(bookingStartTime!);
+      }
+
+      // สั่งรีเลย์ปลดล็อกตู้
+      await _database.child('lockers/${widget.lockerCode}/relay').update({
+        'command': 'unlock_vacant',
+        'timestamp': now.toIso8601String(),
+        'userId': 'system_auto_return',
+        'status': 'pending',
+      });
+
+      // บันทึกประวัติการคืนตู้อัตโนมัติ
+      final historyRef = _database.child('lockers/${widget.lockerCode}/history').push();
+      await historyRef.set({
+        'action': 'auto_returned',
+        'timestamp': now.toIso8601String(),
+        'duration': totalDuration?.inSeconds,
+        'userId': widget.userId,
+        'relayStatus': 'auto',
+      });
+
+      // ลบข้อมูลผู้ใช้ออกจากตู้
+      await _database.child('lockers/${widget.lockerCode}').update({
+        'currentUserId': null,
+        'isLocked': false,
+        'bookingStartTime': null,
+        'bookingEndTime': null,
+        'bookingDuration': null,
+      });
+
+      // ลบรหัสตู้ออกจากผู้ใช้
+      await _database.child('users/${widget.userId}/lockerCode').remove();
+      await _database.child('users/${widget.userId}/bookedAt').remove();
+      await _database.child('users/${widget.userId}/bookingEndTime').remove();
+      await _database.child('users/${widget.userId}/bookingDuration').remove();
+
+      if (mounted) {
+        // ปิด dialog ถ้ามี
+        if (isShowingDialog) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        
+        // แสดงข้อความแจ้งเตือน
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.info, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('ระบบคืนตู้อัตโนมัติเนื่องจากหมดเวลา'),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFED8936),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // รอครู่แล้วกลับไปหน้าเลือกตู้
+        await Future.delayed(const Duration(seconds: 1));
+        
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainNavigationPage(
+              userId: widget.userId,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error auto returning locker: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาดในการคืนตู้อัตโนมัติ: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -950,14 +1109,34 @@ class _LockerControlPageState extends State<LockerControlPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'กรุณาคืนตู้เพื่อดำเนินการต่อ',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFFE53E3E),
+                          if (gracePeriodRemaining != null && gracePeriodRemaining!.inSeconds > 0) ...[
+                            const Text(
+                              'ระบบจะคืนตู้อัตโนมัติใน',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFFE53E3E),
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _formatDuration(gracePeriodRemaining!),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFE53E3E),
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ] else
+                            const Text(
+                              'กำลังคืนตู้อัตโนมัติ...',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFFE53E3E),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                         ],
                       ),
                     ),
