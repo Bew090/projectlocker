@@ -6,6 +6,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'locker_selection_page.dart'; // import หน้าเลือกตู้
 import 'main_navigation_page.dart'; // import หน้า Main Navigation
+import 'notification_service.dart';
 
 class LockerControlPage extends StatefulWidget {
   final String userId; // รับ userId จากหน้าล็อกอิน
@@ -23,7 +24,7 @@ class LockerControlPage extends StatefulWidget {
 
 class _LockerControlPageState extends State<LockerControlPage> {
   // ===== โหมดทดลองใช้ (DEBUG MODE) =====
-  static const bool DEBUG_MODE = true; // เปลี่ยนเป็น false เพื่อปิดโหมดทดลอง
+  static const bool DEBUG_MODE = false; // เปลี่ยนเป็น false เพื่อปิดโหมดทดลอง
   static const int DEBUG_GRACE_PERIOD_SECONDS = 30; // เวลาช่วงผ่อนผันในโหมดทดลอง (30 วินาที)
   static const int PRODUCTION_GRACE_PERIOD_MINUTES = 5; // เวลาช่วงผ่อนผันจริง (5 นาที)
   // ======================================
@@ -62,6 +63,7 @@ class _LockerControlPageState extends State<LockerControlPage> {
       });
       return;
     }
+  NotificationService().initialize(widget.userId);
     _initializeFirebase();
     _startTimeTracking();
   }

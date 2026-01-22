@@ -1,38 +1,137 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Locker Management System">
 
   <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="project002">
+  <meta name="apple-mobile-web-app-title" content="Locker App">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>project002</title>
+  <title>Locker Management System</title>
   <link rel="manifest" href="manifest.json">
+
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    var serviceWorkerVersion = null;
+  </script>
+  
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+
+  <!-- ⚠️ แทนที่ด้วย Firebase Config ของคุณ -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js"></script>
+  
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    
+    console.log('✅ Firebase initialized');
+  </script>
+
+  <style>
+    /* Loading Screen */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .loading-content {
+      text-align: center;
+      color: white;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-top: 5px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Loading Screen -->
+  <div class="loading" id="loading">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <h2>กำลังโหลด...</h2>
+      <p>Locker Management System</p>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp().then(function() {
+              // ซ่อน Loading Screen
+              document.getElementById('loading').style.display = 'none';
+              console.log('✅ Flutter app loaded');
+            });
+          });
+        }
+      });
+    });
+
+    // ลงทะเบียน Service Worker สำหรับ Push Notifications
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((registration) => {
+          console.log('✅ Service Worker registered:', registration);
+        })
+        .catch((error) => {
+          console.error('❌ Service Worker registration failed:', error);
+        });
+    }
+
+    // ตรวจสอบสิทธิ์การแจ้งเตือน
+    if ('Notification' in window) {
+      console.log('📱 Notification permission:', Notification.permission);
+      
+      if (Notification.permission === 'default') {
+        console.log('⚠️ Notification permission not requested yet');
+      } else if (Notification.permission === 'denied') {
+        console.log('❌ Notification permission denied');
+      } else if (Notification.permission === 'granted') {
+        console.log('✅ Notification permission granted');
+      }
+    }
+  </script>
 </body>
 </html>

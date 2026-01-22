@@ -16,7 +16,7 @@ class LockerTimeSelectionPage extends StatefulWidget {
     required this.userId,
     required this.lockerCode,
     this.previousLocker,
-    this.testMode = true, // ค่าเริ่มต้นปิดโหมดทดสอบ
+    this.testMode = false, // ค่าเริ่มต้นปิดโหมดทดสอบ
   }) : super(key: key);
 
   @override
