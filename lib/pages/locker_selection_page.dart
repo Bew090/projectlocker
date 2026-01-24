@@ -20,7 +20,7 @@ class LockerSelectionPage extends StatefulWidget {
 
 class _LockerSelectionPageState extends State<LockerSelectionPage> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  final List<String> lockerCodes = ['A-247', 'A-248', 'B-101', 'B-102', 'C-305', 'C-306'];
+  final List<String> lockerCodes = ['A-001', 'A-002', 'A-003', 'B-004', 'B-005', 'B-006'];
   Map<String, bool> lockerStatus = {};
   Map<String, String?> lockerUsers = {};
   bool isLoading = true;
