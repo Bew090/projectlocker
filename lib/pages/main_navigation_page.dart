@@ -1,10 +1,12 @@
 // main_navigation_page.dart
-// หน้าหลักที่มี Bottom Navigation Bar
+// หน้าหลักที่มี Bottom Navigation Bar (รวมหน้าแอดมิน)
 
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'locker_selection_page.dart';
 import 'history_page.dart';
 import 'profile_page.dart';
+import 'admin_control_page.dart';
 
 class MainNavigationPage extends StatefulWidget {
   final String userId;
@@ -21,19 +23,75 @@ class MainNavigationPage extends StatefulWidget {
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
   late final List<Widget> _pages;
+  bool isAdmin = false;
+  bool isCheckingAdmin = true;
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
   @override
   void initState() {
     super.initState();
-    _pages = [
-      LockerSelectionPage(userId: widget.userId),
-      HistoryPage(userId: widget.userId),
-      ProfilePage(userId: widget.userId),
-    ];
+    _checkAdminStatus();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    try {
+      final userSnapshot = await _database.child('users/${widget.userId}').get();
+      
+      if (userSnapshot.exists) {
+        final userData = userSnapshot.value as Map<dynamic, dynamic>;
+        final email = userData['email'] as String?;
+        
+        setState(() {
+          isAdmin = email == 'admin001@gmail.com';
+          isCheckingAdmin = false;
+        });
+        
+        _initializePages();
+      } else {
+        setState(() {
+          isCheckingAdmin = false;
+        });
+        _initializePages();
+      }
+    } catch (e) {
+      debugPrint('Error checking admin status: $e');
+      setState(() {
+        isCheckingAdmin = false;
+      });
+      _initializePages();
+    }
+  }
+
+  void _initializePages() {
+    setState(() {
+      if (isAdmin) {
+        _pages = [
+          LockerSelectionPage(userId: widget.userId),
+          HistoryPage(userId: widget.userId),
+          AdminControlPage(userId: widget.userId),
+          ProfilePage(userId: widget.userId),
+        ];
+      } else {
+        _pages = [
+          LockerSelectionPage(userId: widget.userId),
+          HistoryPage(userId: widget.userId),
+          ProfilePage(userId: widget.userId),
+        ];
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isCheckingAdmin) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF5F7FA),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return WillPopScope(
       onWillPop: () async {
         // ถ้าอยู่หน้าตู้ล็อกเกอร์ (index 0) ให้ออกจากแอป
@@ -77,23 +135,46 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
             unselectedFontSize: 12,
             selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
             elevation: 0,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.inventory_2_rounded, size: 26),
-                activeIcon: Icon(Icons.inventory_2_rounded, size: 28),
-                label: 'ตู้ล็อกเกอร์',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.history_rounded, size: 26),
-                activeIcon: Icon(Icons.history_rounded, size: 28),
-                label: 'ประวัติ',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded, size: 26),
-                activeIcon: Icon(Icons.person_rounded, size: 28),
-                label: 'โปรไฟล์',
-              ),
-            ],
+            items: isAdmin
+                ? const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.inventory_2_rounded, size: 26),
+                      activeIcon: Icon(Icons.inventory_2_rounded, size: 28),
+                      label: 'ตู้ล็อกเกอร์',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.history_rounded, size: 26),
+                      activeIcon: Icon(Icons.history_rounded, size: 28),
+                      label: 'ประวัติ',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.admin_panel_settings_rounded, size: 26),
+                      activeIcon: Icon(Icons.admin_panel_settings_rounded, size: 28),
+                      label: 'แอดมิน',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.person_rounded, size: 26),
+                      activeIcon: Icon(Icons.person_rounded, size: 28),
+                      label: 'โปรไฟล์',
+                    ),
+                  ]
+                : const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.inventory_2_rounded, size: 26),
+                      activeIcon: Icon(Icons.inventory_2_rounded, size: 28),
+                      label: 'ตู้ล็อกเกอร์',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.history_rounded, size: 26),
+                      activeIcon: Icon(Icons.history_rounded, size: 28),
+                      label: 'ประวัติ',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.person_rounded, size: 26),
+                      activeIcon: Icon(Icons.person_rounded, size: 28),
+                      label: 'โปรไฟล์',
+                    ),
+                  ],
           ),
         ),
       ),
